@@ -14,20 +14,47 @@
 <section id="backup" hidden><div class="panel"><h2>JSON 백업·복원</h2><p class="muted">데이터는 현재 브라우저에 자동 저장됩니다. 다른 기기에서 이어 하려면 JSON 백업을 옮겨 복원하세요. GitHub Pages에 저장되는 것은 웹앱 코드이며, 개인 캠페인 데이터는 자동으로 GitHub에 올라가지 않습니다.</p><div class="actions"><button class="primary" id="export">JSON 백업 다운로드</button><label class="tab">JSON 복원 <input id="importFile" type="file" accept=".json,application/json" hidden></label><button class="danger" id="reset">초기화</button></div><p id="msg" class="muted"></p></div></section>
 <footer>캠페인 보조 도구 · 스토리 진행과 판정은 ChatGPT 대화에서 수행합니다.</footer></main>
 <script>
+'use strict';
+(()=>{
+const $=id=>document.getElementById(id);
 const KEY='limbus-trpg-campaign-v1',SINS=['분노','색욕','나태','탐식','우울','오만','질투'],SIN_HELP=['강행','관계','인내','이해','정신','지배','기민'];
 const blank=()=>({title:'새로운 캠페인',chapter:'프롤로그',location:'',status:'진행 중',summary:'',objectives:'',handoff:'',character:{name:'',age:'',appearance:'',personality:'',affiliation:'',concept:'',backstory:'',sins:[],sinNotes:'',weapon:'',range:'',combatRole:'',combatStyle:'',keywords:'',risk:'',abilities:''},health:[{level:1,label:'경상',slots:0,filled:0},{level:2,label:'중상',slots:0,filled:0},{level:3,label:'치명상',slots:0,filled:0},{level:4,label:'보스·강적 추가',slots:0,filled:0}],resources:{keywords:'',stress:'',ego:'',conditions:''},entries:[],npcs:[]});
-let d;try{d={...blank(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{d=blank()}d.character={...blank().character,...(d.character||{})};d.resources={...blank().resources,...(d.resources||{})};d.health=d.health||blank().health;d.entries=d.entries||[];d.npcs=d.npcs||[];
-const read=p=>p.split('.').reduce((o,k)=>o?.[k],d),save=()=>localStorage.setItem(KEY,JSON.stringify(d)),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-document.querySelectorAll('[data-field]').forEach(el=>{let p=el.dataset.field;el.value=read(p)??'';el.addEventListener('input',()=>{let a=p.split('.'),o=d;for(let k of a.slice(0,-1))o=o[k]??(o[k]={});o[a.at(-1)]=el.value;save()})});
-document.querySelectorAll('[data-tab]').forEach(b=>{b.type='button';b.addEventListener('click',ev=>{ev.preventDefault();const target=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-selected',String(x===b))});document.querySelectorAll('main section').forEach(s=>{s.hidden=s.id!==target});const panel=document.getElementById(target);if(panel)panel.scrollIntoView({block:'start',behavior:'auto'});});});
-const sinChecks=document.querySelector('#sinChecks');sinChecks.innerHTML=SINS.map((s,i)=>'<label><input type="checkbox" value="'+s+'"> '+s+' · '+SIN_HELP[i]+'</label>').join('');sinChecks.querySelectorAll('input').forEach(c=>{c.checked=d.character.sins.includes(c.value);c.onchange=()=>{d.character.sins=[...sinChecks.querySelectorAll('input:checked')].map(x=>x.value);save();updateSinCount()}});function updateSinCount(){let n=d.character.sins.length;sinCount.textContent='선택된 전문 속성: '+n+'개 · 기본 2개, 3개 선택은 GM과 합의가 필요합니다.'}updateSinCount();
-function renderHealth(){healthRows.innerHTML=d.health.map((h,i)=>'<div class="rule" style="margin:8px 0"><b>'+h.level+'단계 · '+esc(h.label)+'</b><div class="grid" style="margin-top:8px"><div><label>체력 칸 수</label><input type="number" min="0" max="99" data-h="'+i+'" data-k="slots" value="'+h.slots+'"></div><div><label>피해가 채운 칸</label><input type="number" min="0" max="99" data-h="'+i+'" data-k="filled" value="'+h.filled+'"></div><div><label>단계 이름</label><input data-h="'+i+'" data-k="label" value="'+esc(h.label)+'"></div></div></div>').join('');healthRows.querySelectorAll('[data-h]').forEach(el=>el.addEventListener('change',()=>{let h=d.health[+el.dataset.h],v=el.dataset.k==='label'?el.value:Math.max(0,Math.min(99,Number(el.value)||0));h[el.dataset.k]=v;if(h.slots&&h.filled>h.slots)h.filled=h.slots;save();renderHealth()}))}
-saveHealth.onclick=()=>{healthRows.querySelectorAll('[data-h]').forEach(el=>{let h=d.health[+el.dataset.h];h[el.dataset.k]=el.dataset.k==='label'?el.value:Math.max(0,Math.min(99,Number(el.value)||0))});save();renderHealth()};
-function render(){entries.innerHTML=d.entries.map((e,i)=>'<div class="entry"><b>'+esc(e.date)+'</b> <span class="tag">'+esc(e.type)+'</span> <b>'+esc(e.title)+'</b><button class="danger" data-e="'+i+'">삭제</button><div>'+esc(e.text)+'</div></div>').join('')||'<p class="muted">기록이 없습니다.</p>';npcList.innerHTML=d.npcs.map((n,i)=>'<div class="entry"><b>'+esc(n.name)+'</b> · '+esc(n.relation)+' · '+esc(n.role)+'<button class="danger" data-n="'+i+'">삭제</button><div>'+esc(n.notes)+'</div></div>').join('')||'<p class="muted">등록된 NPC가 없습니다.</p>'}
-addEntry.onclick=()=>{let t=entryText.value.trim();if(!t)return;d.entries.unshift({date:new Date().toLocaleString('ko-KR'),title:logTitle.value||'무제',type:logType.value,text:t});entryText.value=logTitle.value='';save();render()};
-addNpc.onclick=()=>{let name=npcName.value.trim();if(!name)return;d.npcs.push({name,relation:npcRelation.value,role:npcRole.value,notes:npcNotes.value});npcName.value=npcRelation.value=npcRole.value=npcNotes.value='';save();render()};
-document.addEventListener('click',e=>{if(e.target.dataset.e!==undefined){d.entries.splice(+e.target.dataset.e,1);save();render()}if(e.target.dataset.n!==undefined){d.npcs.splice(+e.target.dataset.n,1);save();render()}});
-export.onclick=()=>{let a=document.createElement('a'),u=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.href=u;a.download='limbus-trpg-campaign.json';a.click();URL.revokeObjectURL(u);msg.textContent='백업 다운로드를 시작했습니다.'};
-importFile.onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!x||typeof x!=='object'||Array.isArray(x))throw 0;d={...blank(),...x};d.character={...blank().character,...(d.character||{})};d.resources={...blank().resources,...(d.resources||{})};d.health=d.health||blank().health;d.entries=d.entries||[];d.npcs=d.npcs||[];save();location.reload()}catch{msg.textContent='올바른 캠페인 JSON 파일이 아닙니다.'}};
-reset.onclick=()=>{if(confirm('저장된 캠페인 데이터를 초기화할까요?')){d=blank();save();location.reload()}};render();renderHealth();
+let d;
+try{d={...blank(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{d=blank()}
+d.character={...blank().character,...(d.character||{})};d.resources={...blank().resources,...(d.resources||{})};d.health=Array.isArray(d.health)?d.health:blank().health;d.entries=Array.isArray(d.entries)?d.entries:[];d.npcs=Array.isArray(d.npcs)?d.npcs:[];
+const read=p=>p.split('.').reduce((o,k)=>o?.[k],d);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(d));const m=$('msg');if(m)m.textContent='자동 저장됨'}catch(e){console.error(e)}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Tabs: explicit DOM references; no implicit window[id] globals.
+const tabs=[...document.querySelectorAll('button[data-tab]')];
+const panels=[...document.querySelectorAll('main section[id]')];
+function showTab(id){
+ const exists=panels.some(p=>p.id===id); if(!exists)return;
+ panels.forEach(p=>{p.hidden=p.id!==id;});
+ tabs.forEach(t=>{const active=t.dataset.tab===id;t.classList.toggle('active',active);t.setAttribute('aria-selected',String(active));});
+}
+tabs.forEach(t=>{t.type='button';t.addEventListener('click',e=>{e.preventDefault();showTab(t.dataset.tab);});});
+showTab('campaign');
+document.querySelectorAll('[data-field]').forEach(el=>{const p=el.dataset.field;el.value=read(p)??'';el.addEventListener('input',()=>{const keys=p.split('.');let o=d;for(const k of keys.slice(0,-1)){if(!o[k]||typeof o[k]!=='object')o[k]={};o=o[k];}o[keys[keys.length-1]]=el.value;save();});});
+const sinChecks=$('sinChecks');
+sinChecks.innerHTML=SINS.map((s,i)=>'<label><input type="checkbox" value="'+s+'"> '+s+' · '+SIN_HELP[i]+'</label>').join('');
+function updateSinCount(){const n=d.character.sins.length;$('sinCount').textContent='선택된 전문 속성: '+n+'개 · 기본 2개, 3개 선택은 GM과 합의가 필요합니다.';}
+sinChecks.querySelectorAll('input').forEach(c=>{c.checked=d.character.sins.includes(c.value);c.addEventListener('change',()=>{d.character.sins=[...sinChecks.querySelectorAll('input:checked')].map(x=>x.value);save();updateSinCount();});});updateSinCount();
+function renderHealth(){
+ $('healthRows').innerHTML=d.health.map((h,i)=>'<div class="rule" style="margin:8px 0"><b>'+esc(h.level)+'단계 · '+esc(h.label)+'</b><div class="grid" style="margin-top:8px"><div><label>체력 칸 수</label><input type="number" min="0" max="99" data-h="'+i+'" data-k="slots" value="'+Number(h.slots||0)+'"></div><div><label>피해가 채운 칸</label><input type="number" min="0" max="99" data-h="'+i+'" data-k="filled" value="'+Number(h.filled||0)+'"></div><div><label>단계 이름</label><input data-h="'+i+'" data-k="label" value="'+esc(h.label)+'"></div></div></div>').join('');
+ $('healthRows').querySelectorAll('[data-h]').forEach(el=>el.addEventListener('change',()=>{const h=d.health[Number(el.dataset.h)],k=el.dataset.k;h[k]=k==='label'?el.value:Math.max(0,Math.min(99,Number(el.value)||0));if(h.slots&&h.filled>h.slots)h.filled=h.slots;save();renderHealth();}));
+}
+$('saveHealth').addEventListener('click',()=>{save();$('msg').textContent='체력 설정을 저장했습니다.';});
+function render(){
+ $('entries').innerHTML=d.entries.map((e,i)=>'<div class="entry"><b>'+esc(e.date)+'</b> <span class="tag">'+esc(e.type)+'</span> <b>'+esc(e.title)+'</b><button type="button" class="danger" data-e="'+i+'">삭제</button><div>'+esc(e.text)+'</div></div>').join('')||'<p class="muted">기록이 없습니다.</p>';
+ $('npcList').innerHTML=d.npcs.map((n,i)=>'<div class="entry"><b>'+esc(n.name)+'</b> · '+esc(n.relation)+' · '+esc(n.role)+'<button type="button" class="danger" data-n="'+i+'">삭제</button><div>'+esc(n.notes)+'</div></div>').join('')||'<p class="muted">등록된 NPC가 없습니다.</p>';
+}
+$('addEntry').addEventListener('click',()=>{const t=$('entryText').value.trim();if(!t)return;d.entries.unshift({date:new Date().toLocaleString('ko-KR'),title:$('logTitle').value||'무제',type:$('logType').value,text:t});$('entryText').value='';$('logTitle').value='';save();render();});
+$('addNpc').addEventListener('click',()=>{const name=$('npcName').value.trim();if(!name)return;d.npcs.push({name,relation:$('npcRelation').value,role:$('npcRole').value,notes:$('npcNotes').value});['npcName','npcRelation','npcRole','npcNotes'].forEach(id=>$(id).value='');save();render();});
+document.addEventListener('click',e=>{const t=e.target;if(t.dataset.e!==undefined){d.entries.splice(Number(t.dataset.e),1);save();render();}if(t.dataset.n!==undefined){d.npcs.splice(Number(t.dataset.n),1);save();render();}});
+$('export').addEventListener('click',()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='limbus-trpg-campaign.json';a.click();URL.revokeObjectURL(u);$('msg').textContent='백업 다운로드를 시작했습니다.';});
+$('importFile').addEventListener('change',async e=>{try{const file=e.target.files?.[0];if(!file)return;const x=JSON.parse(await file.text());if(!x||typeof x!=='object'||Array.isArray(x))throw Error('invalid');d={...blank(),...x};d.character={...blank().character,...(d.character||{})};d.resources={...blank().resources,...(d.resources||{})};d.health=Array.isArray(d.health)?d.health:blank().health;d.entries=Array.isArray(d.entries)?d.entries:[];d.npcs=Array.isArray(d.npcs)?d.npcs:[];save();location.reload();}catch{$('msg').textContent='올바른 캠페인 JSON 파일이 아닙니다.';}});
+$('reset').addEventListener('click',()=>{if(confirm('저장된 캠페인 데이터를 초기화할까요?')){d=blank();save();location.reload();}});
+render();renderHealth();
+})();
 </script></body></html>
